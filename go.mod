@@ -8,6 +8,7 @@ require (
 	github.com/gosuri/uilive v0.0.4
 	github.com/joho/godotenv v1.4.0
 	github.com/urfave/cli/v2 v2.23.5
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
