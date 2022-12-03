@@ -6,15 +6,15 @@ import (
 	"os"
 
 	"github.com/AmrSaber/tw/internal/commands"
-	"github.com/AmrSaber/tw/internal/common"
+	"github.com/AmrSaber/tw/internal/env"
 	"github.com/urfave/cli/v2"
 )
 
 //go:embed .env
-var env string
+var envContent string
 
 func main() {
-	common.SetEvn(env)
+	env.SetEvn(envContent)
 
 	app := &cli.App{
 		Name:  "tw",
@@ -24,7 +24,7 @@ func main() {
 			{
 				Name:        "register",
 				Usage:       "Registers user's info, overwriting old info if any",
-				Description: "Saves user info in ~/.config/tw.yaml all of user info is saved plain except telegram id which is saved encrypted",
+				Description: "Saves user info in {user-config-directory}/tw.yaml all of user info is saved as plain text except telegram id which is encrypted",
 
 				Action: commands.RegisterCommand,
 			},
