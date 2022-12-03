@@ -30,12 +30,10 @@ func main() {
 			},
 
 			{
-				Name:  "status",
+				Name:  "info",
 				Usage: "Get registered user's info",
 
-				Action: func(c *cli.Context) error {
-					return nil
-				},
+				Action: commands.InfoCommand,
 			},
 
 			{

@@ -7,6 +7,7 @@ import (
 
 	"github.com/AmrSaber/tw/internal/models"
 	"github.com/AmrSaber/tw/internal/ui"
+	"github.com/fatih/color"
 	"github.com/gosuri/uilive"
 	"github.com/urfave/cli/v2"
 )
@@ -14,6 +15,12 @@ import (
 func RegisterCommand(c *cli.Context) error {
 	uiWriter := uilive.New()
 	uiWriter.Start()
+
+	failUiWriter := func() {
+		fmt.Fprintln(uiWriter, color.RedString("Error saving user ✘"))
+		uiWriter.Flush()
+		uiWriter.Stop()
+	}
 
 	enterInfoMsg := "Please enter your info"
 
@@ -29,21 +36,21 @@ func RegisterCommand(c *cli.Context) error {
 		} else if currentUser, err := user.Current(); err == nil {
 			defaultName = currentUser.Name
 		}
-		name := ui.AskString("Name:", defaultName)
+		name := ui.AskString(ui.NamePrompt, defaultName)
 
 		fmt.Fprintln(uiWriter, enterInfoMsg)
-		fmt.Fprintln(uiWriter.Newline(), "Name:", name)
+		fmt.Fprintln(uiWriter.Newline(), ui.NamePrompt, name)
 		uiWriter.Flush()
 
 		defaultHostname, _ := os.Hostname()
 		if config.User != nil {
 			defaultHostname = config.User.Hostname
 		}
-		hostname := ui.AskString("Hostname:", defaultHostname)
+		hostname := ui.AskString(ui.HostnamePrompt, defaultHostname)
 
 		fmt.Fprintln(uiWriter, enterInfoMsg)
-		fmt.Fprintln(uiWriter.Newline(), "Name:", name)
-		fmt.Fprintln(uiWriter.Newline(), "Hostname:", hostname)
+		fmt.Fprintln(uiWriter.Newline(), ui.NamePrompt, name)
+		fmt.Fprintln(uiWriter.Newline(), ui.HostnamePrompt, hostname)
 		uiWriter.Flush()
 
 		defaultTelegramId := ""
@@ -52,7 +59,7 @@ func RegisterCommand(c *cli.Context) error {
 				defaultTelegramId = id
 			}
 		}
-		telegramId := ui.AskString("Telegram ID:", defaultTelegramId)
+		telegramId := ui.AskString(ui.TelegramIdPrompt, defaultTelegramId)
 
 		displayedTelegramId := ""
 		for range telegramId {
@@ -60,9 +67,9 @@ func RegisterCommand(c *cli.Context) error {
 		}
 
 		fmt.Fprintln(uiWriter, enterInfoMsg)
-		fmt.Fprintln(uiWriter.Newline(), "Name:", name)
-		fmt.Fprintln(uiWriter.Newline(), "Hostname:", hostname)
-		fmt.Fprintln(uiWriter.Newline(), "Telegram ID:", displayedTelegramId)
+		fmt.Fprintln(uiWriter.Newline(), ui.NamePrompt, name)
+		fmt.Fprintln(uiWriter.Newline(), ui.HostnamePrompt, hostname)
+		fmt.Fprintln(uiWriter.Newline(), ui.TelegramIdPrompt, displayedTelegramId)
 		uiWriter.Flush()
 
 		if ui.AskBool("Save this data?", true) {
@@ -74,9 +81,7 @@ func RegisterCommand(c *cli.Context) error {
 			config.User.Hostname = hostname
 			err := config.User.SetTelegramId(telegramId)
 			if err != nil {
-				fmt.Fprintln(uiWriter, "Error saving user ✗")
-				uiWriter.Flush()
-				uiWriter.Stop()
+				failUiWriter()
 				return err
 			}
 
@@ -85,13 +90,11 @@ func RegisterCommand(c *cli.Context) error {
 	}
 
 	if err := config.Save(); err != nil {
-		fmt.Fprintln(uiWriter, "Error saving user ✗")
-		uiWriter.Flush()
-		uiWriter.Stop()
+		failUiWriter()
 		return err
 	}
 
-	fmt.Fprintln(uiWriter, "User registered ✔")
+	fmt.Fprintln(uiWriter, color.GreenString("User registered ✔"))
 	uiWriter.Flush()
 	uiWriter.Stop()
 
