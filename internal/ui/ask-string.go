@@ -61,6 +61,12 @@ func (m StringQuestionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 		}
+
+		if msg.Type == tea.KeyTab {
+			if m.input.Value() == "" {
+				m.input.SetValue(m.defaultValue)
+			}
+		}
 	}
 
 	var cmd tea.Cmd
