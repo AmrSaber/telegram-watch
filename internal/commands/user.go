@@ -12,7 +12,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func RegisterCommand(c *cli.Context) error {
+func RegisterUserCommand(c *cli.Context) error {
 	uiWriter := uilive.New()
 	uiWriter.Start()
 
@@ -97,6 +97,43 @@ func RegisterCommand(c *cli.Context) error {
 	fmt.Fprintln(uiWriter, color.GreenString("User registered ✔"))
 	uiWriter.Flush()
 	uiWriter.Stop()
+
+	return nil
+}
+
+func UserInfoCommand(c *cli.Context) error {
+	config := models.LoadConfig()
+	if config.User == nil {
+		fmt.Println(color.RedString("No saved user ✘"))
+		return nil
+	}
+
+	telegramId, err := config.User.DecryptTelegramId()
+	if config.User == nil {
+		fmt.Println(color.RedString("Error decrypting telegram ID"))
+		return err
+	}
+
+	fmt.Println(ui.NamePrompt, config.User.Name)
+	fmt.Println(ui.HostnamePrompt, config.User.Hostname)
+	fmt.Println(ui.TelegramIdPrompt, telegramId)
+
+	return nil
+}
+
+func DeleteUserCommand(c *cli.Context) error {
+	config := models.LoadConfig()
+	if config.User == nil {
+		fmt.Println(color.RedString("No saved user ✘"))
+		return nil
+	}
+
+	config.User = nil
+	if err := config.Save(); err != nil {
+		return err
+	}
+
+	fmt.Println(color.GreenString("User info deleted ✔"))
 
 	return nil
 }

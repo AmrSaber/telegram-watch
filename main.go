@@ -22,18 +22,32 @@ func main() {
 
 		Commands: []*cli.Command{
 			{
-				Name:        "register",
-				Usage:       "Registers user's info, overwriting old info if any",
-				Description: "Saves user info in {user-config-directory}/tw.yaml all of user info is saved as plain text except telegram id which is encrypted",
+				Name:  "users",
+				Usage: "Manage saved user",
 
-				Action: commands.RegisterCommand,
-			},
+				Subcommands: []*cli.Command{
+					{
+						Name:        "register",
+						Usage:       "Registers user's info, overwriting old info if any",
+						Description: "Saves user info in {user-config-directory}/tw.yaml; all of user info is saved as plain text except telegram id which is encrypted",
 
-			{
-				Name:  "info",
-				Usage: "Get registered user's info",
+						Action: commands.RegisterUserCommand,
+					},
 
-				Action: commands.InfoCommand,
+					{
+						Name:  "info",
+						Usage: "Get registered user's info",
+
+						Action: commands.UserInfoCommand,
+					},
+
+					{
+						Name:  "delete",
+						Usage: "Delete registered user's info",
+
+						Action: commands.DeleteUserCommand,
+					},
+				},
 			},
 
 			{
