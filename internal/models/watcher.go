@@ -1,49 +1,100 @@
 package models
 
 import (
+	"fmt"
+	"os/exec"
+
+	"github.com/AmrSaber/tw/internal/env"
+	"github.com/AmrSaber/tw/internal/utils"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type TelegramWatcher struct {
-	bot       *tgbotapi.BotAPI
-	stdOutMsg tgbotapi.Message
-	stdErrMsg tgbotapi.Message
+type CommandWatcher struct {
+	bot          *tgbotapi.BotAPI
+	stdoutWriter *TelegramWriter
+	stderrWriter *TelegramWriter
+
+	command *exec.Cmd
+
+	doneSuccessMessage string
+	doneFailMessage    string
 }
 
-func NewWatcher(config Config, command string) *TelegramWatcher {
-	// bot, err := tgbotapi.NewBotAPI(env.GetBotTokenKey())
-	// if err != nil {
-	// 	return nil, err
-	// }
+var messageBaseTemplate string
 
-	// stringId, _ := config.User.DecryptTelegramId()
-	// id, _ := strconv.Atoi(stringId)
-	// msgConfig := tgbotapi.NewMessage(int64(id), "Hello, this is a message to track your command")
+func NewWatcher(config Config, command string) (*CommandWatcher, error) {
+	cmd := exec.Command("bash", "-c", command)
 
-	// msg, err := bot.Send(msgConfig)
-	// if err != nil {
-	// 	return nil
-	// }
+	bot, err := tgbotapi.NewBotAPI(env.GetBotTokenKey())
+	if err != nil {
+		return nil, err
+	}
+
+	messageBaseTemplate = fmt.Sprintf(
+		"%%s Hello %s\n"+
+			"This message traces %%s from command %q\n"+
+			"From your device %q\n\n"+
+			"%%%%s",
+		config.User.Name,
+		command,
+		config.User.Hostname,
+	)
+
+	stdoutTemplate := fmt.Sprintf(messageBaseTemplate, utils.BLUE_CIRCLE, "STDOUT")
+	stderrTemplate := fmt.Sprintf(messageBaseTemplate, utils.RED_CIRCLE, "STDERR")
+
+	telegramId, _ := config.User.DecryptTelegramId()
+	stdoutWriter := NewTelegramWriter(telegramId, bot, stdoutTemplate)
+	stderrWriter := NewTelegramWriter(telegramId, bot, stderrTemplate)
+
+	cmd.Stdout = stdoutWriter
+	cmd.Stderr = stderrWriter
+
+	doneSuccessMessage := fmt.Sprintf(
+		"Command %q\non device %q\nis now done successfully %s",
+		command,
+		config.User.Hostname,
+		utils.GREEN_CHECK,
+	)
+
+	doneFailMessage := fmt.Sprintf(
+		"Command %q\non device %q\nexited with %%q %s",
+		command,
+		config.User.Hostname,
+		utils.RED_X,
+	)
+
+	watcher := CommandWatcher{
+		bot:          bot,
+		stdoutWriter: stdoutWriter,
+		stderrWriter: stderrWriter,
+
+		command: cmd,
+
+		doneSuccessMessage: doneSuccessMessage,
+		doneFailMessage:    doneFailMessage,
+	}
+
+	return &watcher, nil
+}
+
+func (w *CommandWatcher) RunCommand() error {
+	err := w.command.Run()
+
+	stdoutTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDOUT")
+	stderrTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDERR")
+	w.stdoutWriter.SetTemplate(stdoutTemplate)
+	w.stderrWriter.SetTemplate(stderrTemplate)
+
+	doneMsgConfig := tgbotapi.NewMessage(w.stdoutWriter.chatId, w.doneSuccessMessage)
+	if err != nil {
+		failMessage := fmt.Sprintf(w.doneFailMessage, err)
+		doneMsgConfig = tgbotapi.NewMessage(w.stderrWriter.chatId, failMessage)
+	}
+
+	if _, err := w.bot.Send(doneMsgConfig); err != nil {
+		return err
+	}
 
 	return nil
-}
-
-func (w *TelegramWatcher) Close() error {
-	return nil
-}
-
-func (w *TelegramWatcher) Write(bytes []byte) (int, error) {
-
-	// w.output += string(bytes)
-	// fmt.Println(string(bytes))
-
-	// editMessageConfig := tgbotapi.NewEditMessageText(w.msg.Chat.ID, w.msg.MessageID, w.output)
-	// var err error
-
-	// w.msg, err = w.bot.Send(editMessageConfig)
-	// if err != nil {
-	// 	return 0, nil
-	// }
-
-	return len(bytes), nil
 }
