@@ -59,7 +59,7 @@ func RegisterUserCommand(c *cli.Context) error {
 				defaultTelegramId = id
 			}
 		}
-		telegramId := ui.AskString(ui.TelegramIdPrompt, defaultTelegramId)
+		telegramId := ui.AskInt(ui.TelegramIdPrompt, defaultTelegramId)
 
 		displayedTelegramId := ""
 		for range telegramId {

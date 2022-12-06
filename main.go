@@ -54,9 +54,7 @@ func main() {
 				Name:  "watch",
 				Usage: "Run provided command and watch it through telegram",
 
-				Action: func(c *cli.Context) error {
-					return nil
-				},
+				Action: commands.WatchCommand,
 			},
 		},
 	}
