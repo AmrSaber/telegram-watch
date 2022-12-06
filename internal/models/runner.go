@@ -9,7 +9,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type CommandWatcher struct {
+type CommandRunner struct {
 	bot          *tgbotapi.BotAPI
 	stdoutWriter *TelegramWriter
 	stderrWriter *TelegramWriter
@@ -22,7 +22,7 @@ type CommandWatcher struct {
 
 var messageBaseTemplate string
 
-func NewWatcher(config Config, command string) (*CommandWatcher, error) {
+func NewWatcher(config Config, command string) (*CommandRunner, error) {
 	cmd := exec.Command("bash", "-c", command)
 
 	bot, err := tgbotapi.NewBotAPI(env.GetBotTokenKey())
@@ -64,7 +64,7 @@ func NewWatcher(config Config, command string) (*CommandWatcher, error) {
 		utils.RED_X,
 	)
 
-	watcher := CommandWatcher{
+	watcher := CommandRunner{
 		bot:          bot,
 		stdoutWriter: stdoutWriter,
 		stderrWriter: stderrWriter,
@@ -78,7 +78,7 @@ func NewWatcher(config Config, command string) (*CommandWatcher, error) {
 	return &watcher, nil
 }
 
-func (w *CommandWatcher) RunCommand() error {
+func (w *CommandRunner) RunCommand() error {
 	err := w.command.Run()
 
 	stdoutTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDOUT")

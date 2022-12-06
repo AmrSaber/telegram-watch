@@ -51,10 +51,11 @@ func main() {
 			},
 
 			{
-				Name:  "watch",
-				Usage: "Run provided command and watch it through telegram",
+				Name:    "run",
+				Aliases: []string{"r"},
+				Usage:   "Run provided command and pipe its output it to telegram",
 
-				Action: commands.WatchCommand,
+				Action: commands.RunCommand,
 			},
 		},
 	}

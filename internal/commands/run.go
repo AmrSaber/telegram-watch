@@ -8,7 +8,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func WatchCommand(c *cli.Context) error {
+func RunCommand(c *cli.Context) error {
 	config := models.LoadConfig()
 	if config.User == nil {
 		return fmt.Errorf("no registered user")
