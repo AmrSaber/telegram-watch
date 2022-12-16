@@ -22,7 +22,7 @@ func main() {
 
 		Commands: []*cli.Command{
 			{
-				Name:  "users",
+				Name:  "user",
 				Usage: "Manage saved user",
 
 				Subcommands: []*cli.Command{
