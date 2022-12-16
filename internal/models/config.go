@@ -10,6 +10,12 @@ import (
 
 type Config struct {
 	User *User `yaml:"user"`
+
+	Runtime RuntimeConfig `yaml:"-"`
+}
+
+type RuntimeConfig struct {
+	Quiet bool
 }
 
 func LoadConfig() Config {

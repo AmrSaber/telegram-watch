@@ -54,6 +54,17 @@ func main() {
 				Name:    "run",
 				Aliases: []string{"r"},
 				Usage:   "Run provided command and pipe its output it to telegram",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "quiet",
+						Aliases: []string{"q"},
+
+						Usage: "if provided, will not show output to terminal",
+
+						Value:    false,
+						Required: false,
+					},
+				},
 
 				Action: commands.RunCommand,
 			},

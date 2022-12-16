@@ -9,10 +9,14 @@ import (
 )
 
 func RunCommand(c *cli.Context) error {
+	quiet := c.Bool("quiet")
+
 	config := models.LoadConfig()
 	if config.User == nil {
 		return fmt.Errorf("no registered user")
 	}
+
+	config.Runtime.Quiet = quiet
 
 	telegramId, err := config.User.DecryptTelegramId()
 	if err != nil || telegramId == "" {
@@ -26,12 +30,12 @@ func RunCommand(c *cli.Context) error {
 
 	command := strings.Join(args, " ")
 
-	watcher, err := models.NewWatcher(config, command)
+	runner, err := models.NewRunner(config, command)
 	if err != nil {
 		return err
 	}
 
-	if err := watcher.RunCommand(); err != nil {
+	if err := runner.RunCommand(); err != nil {
 		return err
 	}
 

@@ -2,6 +2,8 @@ package models
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"os/exec"
 
 	"github.com/AmrSaber/tw/internal/env"
@@ -22,7 +24,7 @@ type CommandRunner struct {
 
 var messageBaseTemplate string
 
-func NewWatcher(config Config, command string) (*CommandRunner, error) {
+func NewRunner(config Config, command string) (*CommandRunner, error) {
 	cmd := exec.Command("bash", "-c", command)
 
 	bot, err := tgbotapi.NewBotAPI(env.GetBotTokenKey())
@@ -40,12 +42,21 @@ func NewWatcher(config Config, command string) (*CommandRunner, error) {
 		config.User.Hostname,
 	)
 
-	stdoutTemplate := fmt.Sprintf(messageBaseTemplate, utils.BLUE_CIRCLE, "STDOUT")
+	stdoutTemplate := fmt.Sprintf(messageBaseTemplate, utils.GREEN_CIRCLE, "STDOUT")
 	stderrTemplate := fmt.Sprintf(messageBaseTemplate, utils.RED_CIRCLE, "STDERR")
 
 	telegramId, _ := config.User.DecryptTelegramId()
-	stdoutWriter := NewTelegramWriter(telegramId, bot, stdoutTemplate)
-	stderrWriter := NewTelegramWriter(telegramId, bot, stderrTemplate)
+	stdoutMsgWriter := NewTelegramWriter(telegramId, bot, stdoutTemplate)
+	stderrMsgWriter := NewTelegramWriter(telegramId, bot, stderrTemplate)
+
+	var stdoutWriter, stderrWriter io.Writer
+	stdoutWriter = stdoutMsgWriter
+	stderrWriter = stderrMsgWriter
+
+	if !config.Runtime.Quiet {
+		stdoutWriter = io.MultiWriter(os.Stdout, stdoutMsgWriter)
+		stderrWriter = io.MultiWriter(os.Stderr, stderrMsgWriter)
+	}
 
 	cmd.Stdout = stdoutWriter
 	cmd.Stderr = stderrWriter
@@ -64,10 +75,10 @@ func NewWatcher(config Config, command string) (*CommandRunner, error) {
 		utils.RED_X,
 	)
 
-	watcher := CommandRunner{
+	runner := CommandRunner{
 		bot:          bot,
-		stdoutWriter: stdoutWriter,
-		stderrWriter: stderrWriter,
+		stdoutWriter: stdoutMsgWriter,
+		stderrWriter: stderrMsgWriter,
 
 		command: cmd,
 
@@ -75,12 +86,13 @@ func NewWatcher(config Config, command string) (*CommandRunner, error) {
 		doneFailMessage:    doneFailMessage,
 	}
 
-	return &watcher, nil
+	return &runner, nil
 }
 
 func (w *CommandRunner) RunCommand() error {
 	err := w.command.Run()
 
+	// Set templates to completed templates
 	stdoutTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDOUT")
 	stderrTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDERR")
 	w.stdoutWriter.SetTemplate(stdoutTemplate)
