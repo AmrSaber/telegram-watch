@@ -3,11 +3,15 @@ package models
 import (
 	"fmt"
 	"strconv"
+	"strings"
+	"sync"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type TelegramWriter struct {
+	lock sync.Mutex
+
 	chatId int64
 
 	bot *tgbotapi.BotAPI
@@ -46,6 +50,9 @@ func (w *TelegramWriter) start() error {
 }
 
 func (w *TelegramWriter) Write(bytes []byte) (int, error) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
 	if w.msg == nil {
 		w.start()
 	}
@@ -60,6 +67,9 @@ func (w *TelegramWriter) Write(bytes []byte) (int, error) {
 }
 
 func (w *TelegramWriter) SetTemplate(template string) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
 	w.template = template
 	if w.msg != nil {
 		w.flush()
@@ -76,7 +86,7 @@ func (w *TelegramWriter) flush() error {
 	updateMsgConfig := tgbotapi.NewEditMessageText(w.chatId, w.msg.MessageID, msgContent)
 
 	msg, err := w.bot.Send(updateMsgConfig)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "message is not modified") {
 		return err
 	}
 

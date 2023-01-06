@@ -64,6 +64,15 @@ func main() {
 						Value:    false,
 						Required: false,
 					},
+					&cli.StringFlag{
+						Name:    "timeout",
+						Aliases: []string{"t"},
+
+						Usage: "if provided, will set timeout for the running command, acceptable suffixes are (ns, ms, s, m, h) e.g. 2s, 100ms, ...",
+
+						Value:    "",
+						Required: false,
+					},
 				},
 
 				Action: commands.RunCommand,

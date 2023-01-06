@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
+	"syscall"
 
 	"github.com/AmrSaber/tw/internal/env"
 	"github.com/AmrSaber/tw/internal/utils"
@@ -25,8 +27,8 @@ type CommandRunner struct {
 
 var messageBaseTemplate string
 
-func NewRunner(ctx context.Context, config Config, command string) (*CommandRunner, error) {
-	cmd := exec.CommandContext(ctx, "bash", "-c", command)
+func NewRunner(config Config, command string) (*CommandRunner, error) {
+	cmd := exec.Command("bash", "-c", command)
 
 	bot, err := tgbotapi.NewBotAPI(env.GetBotTokenKey())
 	if err != nil {
@@ -90,8 +92,22 @@ func NewRunner(ctx context.Context, config Config, command string) (*CommandRunn
 	return &runner, nil
 }
 
-func (w *CommandRunner) RunCommand() error {
-	err := w.command.Run()
+func (w *CommandRunner) RunCommand(ctx context.Context) error {
+	err := w.command.Start()
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		<-ctx.Done()
+		w.command.Process.Signal(syscall.SIGINT)
+	}()
+
+	err = w.command.Wait()
+
+	if err != nil {
+		log.Println(err)
+	}
 
 	// Set templates to completed templates
 	stdoutTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDOUT")

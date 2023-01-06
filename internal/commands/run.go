@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/AmrSaber/tw/internal/models"
 	"github.com/AmrSaber/tw/internal/utils"
@@ -12,6 +13,7 @@ import (
 
 func RunCommand(c *cli.Context) error {
 	quiet := c.Bool("quiet")
+	timeout := c.String("timeout")
 
 	config := models.LoadConfig()
 	if config.User == nil {
@@ -35,14 +37,26 @@ func RunCommand(c *cli.Context) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	if timeout != "" {
+		duration, err := time.ParseDuration(timeout)
+		if err != nil {
+			return fmt.Errorf("invalid timeout: %w", err)
+		}
+
+		go func() {
+			time.Sleep(duration)
+			cancel()
+		}()
+	}
+
 	utils.HandleInterrupt(func() { cancel() })
 
-	runner, err := models.NewRunner(ctx, config, command)
+	runner, err := models.NewRunner(config, command)
 	if err != nil {
 		return err
 	}
 
-	if err := runner.RunCommand(); err != nil {
+	if err := runner.RunCommand(ctx); err != nil {
 		return err
 	}
 
