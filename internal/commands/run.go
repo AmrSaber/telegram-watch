@@ -1,10 +1,12 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/AmrSaber/tw/internal/models"
+	"github.com/AmrSaber/tw/internal/utils"
 	"github.com/urfave/cli/v2"
 )
 
@@ -30,7 +32,12 @@ func RunCommand(c *cli.Context) error {
 
 	command := strings.Join(args, " ")
 
-	runner, err := models.NewRunner(config, command)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	utils.HandleInterrupt(func() { cancel() })
+
+	runner, err := models.NewRunner(ctx, config, command)
 	if err != nil {
 		return err
 	}

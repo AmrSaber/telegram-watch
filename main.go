@@ -59,7 +59,7 @@ func main() {
 						Name:    "quiet",
 						Aliases: []string{"q"},
 
-						Usage: "if provided, will not show output to terminal",
+						Usage: "if provided, will not show output in terminal",
 
 						Value:    false,
 						Required: false,

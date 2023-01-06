@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -24,8 +25,8 @@ type CommandRunner struct {
 
 var messageBaseTemplate string
 
-func NewRunner(config Config, command string) (*CommandRunner, error) {
-	cmd := exec.Command("bash", "-c", command)
+func NewRunner(ctx context.Context, config Config, command string) (*CommandRunner, error) {
+	cmd := exec.CommandContext(ctx, "bash", "-c", command)
 
 	bot, err := tgbotapi.NewBotAPI(env.GetBotTokenKey())
 	if err != nil {
