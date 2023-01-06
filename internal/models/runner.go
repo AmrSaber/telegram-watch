@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"syscall"
@@ -105,10 +104,6 @@ func (w *CommandRunner) RunCommand(ctx context.Context) error {
 
 	err = w.command.Wait()
 
-	if err != nil {
-		log.Println(err)
-	}
-
 	// Set templates to completed templates
 	stdoutTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDOUT")
 	stderrTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDERR")
@@ -125,5 +120,5 @@ func (w *CommandRunner) RunCommand(ctx context.Context) error {
 		return err
 	}
 
-	return nil
+	return err
 }

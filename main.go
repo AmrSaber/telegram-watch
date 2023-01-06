@@ -64,6 +64,7 @@ func main() {
 						Value:    false,
 						Required: false,
 					},
+
 					&cli.StringFlag{
 						Name:    "timeout",
 						Aliases: []string{"t"},
