@@ -28,7 +28,7 @@ func main() {
 				Subcommands: []*cli.Command{
 					{
 						Name:        "register",
-						Usage:       "Registers user's info, overwriting old info if any",
+						Usage:       "Registers or updates user's info",
 						Description: "Saves user info in {user-config-directory}/tw.yaml; all of user info is saved as plain text except telegram id which is encrypted",
 
 						Action: commands.RegisterUserCommand,
@@ -51,45 +51,36 @@ func main() {
 			},
 
 			{
-				Name:    "notify",
-				Aliases: []string{"n"},
-				Usage:   "Send a message to telegram, can be used to send done message when a task is done or error if there is an error",
+				Name:        "send",
+				Aliases:     []string{"notify", "message"},
+				Usage:       "Sends a message to telegram",
+				Description: "Can be used to send done message when a task is done or error if there is an error, can use - to send stdin",
 
-				Subcommands: []*cli.Command{
-					{
-						Name:    "done",
-						Aliases: []string{"d", "success"},
-						Usage:   "Sends success message to telegram, message from arguments, defaults to 'Done'",
-
-						Action: commands.NotifyDone,
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "fail",
+						Aliases: []string{"error", "err", "boo"},
+						Usage:   "Prefix the message with a red x",
 					},
 
-					{
-						Name:    "error",
-						Aliases: []string{"err", "e"},
-						Usage:   "Sends error message to telegram, message from arguments, defaults to 'Error'",
-
-						Action: commands.NotifyErr,
-					},
-
-					{
-						Name:    "message",
-						Aliases: []string{"msg", "m"},
-						Usage:   "sends custom message to telegram; the message is the argument provided to this command",
-
-						Action: commands.NotifyMessage,
+					&cli.BoolFlag{
+						Name:    "success",
+						Aliases: []string{"done", "yay"},
+						Usage:   "Prefix the message with a green check",
 					},
 				},
+
+				Action: commands.SendCommand,
 			},
 
 			{
 				Name:    "run",
 				Aliases: []string{"r"},
-				Usage:   "Run provided command and pipe its output it to telegram",
+				Usage:   "Run provided command and pipe its output to telegram",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
 						Name:    "quiet",
-						Aliases: []string{"q"},
+						Aliases: []string{"q", "silent", "s"},
 
 						Usage: "if provided, will not show output in terminal",
 
