@@ -2,11 +2,11 @@ package main
 
 import (
 	_ "embed"
-	"log"
 	"os"
 
 	"github.com/AmrSaber/tw/internal/commands"
 	"github.com/AmrSaber/tw/internal/env"
+	"github.com/fatih/color"
 	"github.com/urfave/cli/v2"
 )
 
@@ -51,6 +51,38 @@ func main() {
 			},
 
 			{
+				Name:    "notify",
+				Aliases: []string{"n"},
+				Usage:   "Send a message to telegram, can be used to send done message when a task is done or error if there is an error",
+
+				Subcommands: []*cli.Command{
+					{
+						Name:    "done",
+						Aliases: []string{"d", "success"},
+						Usage:   "Sends success message to telegram, message from arguments, defaults to 'Done'",
+
+						Action: commands.NotifyDone,
+					},
+
+					{
+						Name:    "error",
+						Aliases: []string{"err", "e"},
+						Usage:   "Sends error message to telegram, message from arguments, defaults to 'Error'",
+
+						Action: commands.NotifyErr,
+					},
+
+					{
+						Name:    "message",
+						Aliases: []string{"msg", "m"},
+						Usage:   "sends custom message to telegram; the message is the argument provided to this command",
+
+						Action: commands.NotifyMessage,
+					},
+				},
+			},
+
+			{
 				Name:    "run",
 				Aliases: []string{"r"},
 				Usage:   "Run provided command and pipe its output it to telegram",
@@ -82,6 +114,6 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+		color.Red("error: %s", err)
 	}
 }
