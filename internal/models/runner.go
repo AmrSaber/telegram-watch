@@ -15,8 +15,8 @@ import (
 
 type CommandRunner struct {
 	bot          *tgbotapi.BotAPI
-	stdoutWriter *TelegramWriter
-	stderrWriter *TelegramWriter
+	stdoutWriter *TelegramTemplateWriter
+	stderrWriter *TelegramTemplateWriter
 
 	command *exec.Cmd
 
@@ -48,8 +48,8 @@ func NewRunner(config Config, command string) (*CommandRunner, error) {
 	stderrTemplate := fmt.Sprintf(messageBaseTemplate, utils.RED_CIRCLE, "STDERR")
 
 	telegramId, _ := config.User.DecryptTelegramId()
-	stdoutMsgWriter := NewTelegramWriter(telegramId, bot, stdoutTemplate)
-	stderrMsgWriter := NewTelegramWriter(telegramId, bot, stderrTemplate)
+	stdoutMsgWriter := NewTelegramTemplateWriter(telegramId, bot, stdoutTemplate)
+	stderrMsgWriter := NewTelegramTemplateWriter(telegramId, bot, stderrTemplate)
 
 	var stdoutWriter, stderrWriter io.Writer
 	stdoutWriter = stdoutMsgWriter

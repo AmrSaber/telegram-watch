@@ -5,91 +5,150 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"unsafe"
 
+	"github.com/AmrSaber/tw/internal/env"
+	"github.com/AmrSaber/tw/internal/utils"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type TelegramWriter struct {
 	lock sync.Mutex
 
-	chatId int64
+	chatId    int64
+	autoFlush bool
 
-	bot *tgbotapi.BotAPI
-	msg *tgbotapi.Message
+	bot      *tgbotapi.BotAPI
+	messages []*tgbotapi.Message
 
-	content  string
-	template string // Must contain exactly one "%s" to be replaces with the content
+	fullContent []byte
 }
 
-func NewTelegramWriter(userId string, bot *tgbotapi.BotAPI, template string) *TelegramWriter {
-	chatId, err := strconv.ParseInt(userId, 0, 0)
+func NewTelegramWriter(chatId string) *TelegramWriter {
+	bot, err := tgbotapi.NewBotAPI(env.GetBotTokenKey())
+	if err != nil {
+		panic(err)
+	}
+
+	numChatId, err := strconv.ParseInt(chatId, 0, 0)
 	if err != nil {
 		panic(err)
 	}
 
 	return &TelegramWriter{
-		chatId: chatId,
-		bot:    bot,
+		lock: sync.Mutex{},
 
-		template: template,
+		chatId:    numChatId,
+		autoFlush: true,
+
+		bot:      bot,
+		messages: make([]*tgbotapi.Message, 0),
+
+		fullContent: make([]byte, 0),
 	}
 }
 
-// Sends first message to user
-func (w *TelegramWriter) start() error {
-	msgContent := fmt.Sprintf(w.template, w.content)
-	msgConfig := tgbotapi.NewMessage(w.chatId, msgContent)
+func (m *TelegramWriter) SetAutoFlush(autoFlush bool) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
-	msg, err := w.bot.Send(msgConfig)
-	if err != nil {
-		return err
+	m.autoFlush = autoFlush
+}
+
+func (m *TelegramWriter) Write(input []byte) (int, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	m.fullContent = append(m.fullContent, input...)
+
+	if m.autoFlush {
+		if err := m.flush(); err != nil {
+			return 0, err
+		}
 	}
 
-	w.msg = &msg
+	return len(input), nil
+}
+
+func (m *TelegramWriter) SetContent(content []byte) error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	m.fullContent = content
+
+	if m.autoFlush {
+		if err := m.flush(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func (w *TelegramWriter) Write(bytes []byte) (int, error) {
-	w.lock.Lock()
-	defer w.lock.Unlock()
-
-	if w.msg == nil {
-		w.start()
+func (m *TelegramWriter) flush() error {
+	if len(m.fullContent) == 0 {
+		return nil
 	}
 
-	w.content += string(bytes)
+	splitContent := utils.MeaningfullySplit(m.fullContent, utils.TELEGRAM_MESSAGE_LIMIT)
+	countTemplate := fmt.Sprintf("\n\n---------------\n(%%0%dd/%d)", utils.CountDigits(len(splitContent)), len(splitContent))
 
-	if err := w.flush(); err != nil {
-		return 0, err
+	// Update existing messages or send new ones as needed
+	for index, part := range splitContent {
+		// If the message consists of more than 1 part, append part counter to the end of each part
+		if len(splitContent) > 1 {
+			// This part is necessary so that the original string is not modified
+			{
+				partClone := make([]byte, len(part))
+				copy(partClone, part)
+				part = partClone
+			}
+
+			part = fmt.Appendf(part[:], countTemplate, index+1)
+		}
+
+		// Convert the byte array into string without allocation
+		strPart := unsafe.String(unsafe.SliceData(part), len(part))
+
+		if index >= len(m.messages) {
+			// If message at current index does not exist, send it
+			msgConfig := tgbotapi.NewMessage(m.chatId, strPart)
+
+			if index > 0 {
+				msgConfig.ReplyToMessageID = m.messages[index-1].MessageID
+			}
+
+			msg, err := m.bot.Send(msgConfig)
+			if err != nil {
+				return err
+			}
+
+			m.messages = append(m.messages, &msg)
+		} else {
+			// If message already exists, update it
+			updateMsgConfig := tgbotapi.NewEditMessageText(m.chatId, m.messages[index].MessageID, strPart)
+
+			msg, err := m.bot.Send(updateMsgConfig)
+			if err != nil && !strings.Contains(err.Error(), "message is not modified") {
+				return err
+			}
+
+			m.messages[index] = &msg
+		}
 	}
 
-	return len(bytes), nil
-}
+	// Delete any extra messages after the update
+	if len(m.messages) > len(splitContent) {
+		extra := m.messages[len(splitContent)-1:]
+		m.messages = m.messages[:len(splitContent)]
 
-func (w *TelegramWriter) SetTemplate(template string) {
-	w.lock.Lock()
-	defer w.lock.Unlock()
-
-	w.template = template
-	if w.msg != nil {
-		w.flush()
-	}
-}
-
-func (w *TelegramWriter) GetChatId() int64 {
-	return w.chatId
-}
-
-// Write latest content to message
-func (w *TelegramWriter) flush() error {
-	msgContent := fmt.Sprintf(w.template, w.content)
-	updateMsgConfig := tgbotapi.NewEditMessageText(w.chatId, w.msg.MessageID, msgContent)
-
-	msg, err := w.bot.Send(updateMsgConfig)
-	if err != nil && !strings.Contains(err.Error(), "message is not modified") {
-		return err
+		for _, message := range extra {
+			deleteMessageConfig := tgbotapi.NewDeleteMessage(m.chatId, message.MessageID)
+			if _, err := m.bot.Send(deleteMessageConfig); err != nil {
+				return err
+			}
+		}
 	}
 
-	w.msg = &msg
 	return nil
 }

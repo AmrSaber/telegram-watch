@@ -50,7 +50,7 @@ func SendCommand(ctx *cli.Context) error {
 	// Send message
 	content = fmt.Sprintf("%s:\n%s", config.User.Hostname, content)
 
-	message := models.NewTelegramMessage(telegramId)
+	message := models.NewTelegramWriter(telegramId)
 	_, err = message.Write(unsafe.Slice(unsafe.StringData(content), len(content)))
 
 	return err
