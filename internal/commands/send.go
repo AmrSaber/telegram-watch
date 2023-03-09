@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"unsafe"
 
 	"github.com/AmrSaber/tw/internal/models"
 	"github.com/AmrSaber/tw/internal/utils"
@@ -16,23 +17,23 @@ func SendCommand(ctx *cli.Context) error {
 		return fmt.Errorf("you must provide a message")
 	}
 
-	// Read message (from args or std)
-	message := strings.Join(ctx.Args().Slice(), " ")
-	message = strings.TrimSpace(message)
-	if message == "-" {
+	// Read message content (from args or std)
+	content := strings.Join(ctx.Args().Slice(), " ")
+	content = strings.TrimSpace(content)
+	if content == "-" {
 		bytes, err := io.ReadAll(os.Stdin)
 		if err != nil {
 			return err
 		}
 
-		message = string(bytes)
+		content = string(bytes)
 	}
 
 	// Add any required prefixes
 	if ctx.Bool("done") {
-		message = fmt.Sprintf("%s %s", utils.GREEN_CHECK, message)
+		content = fmt.Sprintf("%s %s", utils.GREEN_CHECK, content)
 	} else if ctx.Bool("err") {
-		message = fmt.Sprintf("%s %s", utils.RED_X, message)
+		content = fmt.Sprintf("%s %s", utils.RED_X, content)
 	}
 
 	// Load and validate config
@@ -47,6 +48,10 @@ func SendCommand(ctx *cli.Context) error {
 	}
 
 	// Send message
-	message = fmt.Sprintf("%s:\n%s", config.User.Hostname, message)
-	return utils.SendSingleMessage(telegramId, message)
+	content = fmt.Sprintf("%s:\n%s", config.User.Hostname, content)
+
+	message := models.NewTelegramMessage(telegramId)
+	_, err = message.Write(unsafe.Slice(unsafe.StringData(content), len(content)))
+
+	return err
 }

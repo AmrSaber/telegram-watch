@@ -1,6 +1,7 @@
 package utils
 
 const NUMERAL_RUNES = "0123456789"
+const TELEGRAM_MESSAGE_LIMIT = 4000
 
 const (
 	GREEN_CIRCLE = "\xF0\x9F\x9F\xA2"
