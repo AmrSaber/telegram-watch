@@ -104,6 +104,10 @@ func (w *CommandRunner) RunCommand(ctx context.Context) error {
 
 	err = w.command.Wait()
 
+	// Wait for writers to finish any pending writing
+	w.stdoutWriter.Wait()
+	w.stderrWriter.Wait()
+
 	// Set templates to completed templates
 	stdoutTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDOUT")
 	stderrTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDERR")

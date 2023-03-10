@@ -31,15 +31,16 @@ func (w *TelegramTemplateWriter) GetChatId() int64 {
 	return w.writer.GetChatId()
 }
 
+func (w *TelegramTemplateWriter) Wait() {
+	w.writer.Wait()
+}
+
 func (w *TelegramTemplateWriter) Write(bytes []byte) (int, error) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
 	w.content = append(w.content, bytes...)
-
-	if err := w.flush(); err != nil {
-		return 0, err
-	}
+	w.flush()
 
 	return len(bytes), nil
 }
@@ -55,14 +56,8 @@ func (w *TelegramTemplateWriter) SetTemplate(template string) {
 }
 
 // Write latest content to message
-func (w *TelegramTemplateWriter) flush() error {
+func (w *TelegramTemplateWriter) flush() {
 	msgContent := fmt.Appendf([]byte{}, w.template, w.content)
-
-	if err := w.writer.SetContent(msgContent); err != nil {
-		// FIXME: this error is lost, the command at runner.go sends "signal: broken pipe" error
-		return err
-	}
-
+	w.writer.SetContent(msgContent)
 	w.started = true
-	return nil
 }
