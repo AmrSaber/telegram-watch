@@ -3,6 +3,7 @@ package models
 import (
 	"io"
 	"os"
+	"time"
 
 	"github.com/AmrSaber/tw/internal/utils"
 	"gopkg.in/yaml.v2"
@@ -16,6 +17,9 @@ type Config struct {
 
 type RuntimeConfig struct {
 	Quiet bool
+
+	Interval time.Duration
+	Timeout  time.Duration
 }
 
 func LoadConfig() Config {

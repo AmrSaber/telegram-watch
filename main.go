@@ -77,6 +77,7 @@ func main() {
 				Name:    "run",
 				Aliases: []string{"r"},
 				Usage:   "Run provided command and pipe its output to telegram",
+
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
 						Name:    "quiet",
@@ -100,6 +101,47 @@ func main() {
 				},
 
 				Action: commands.RunCommand,
+			},
+
+			{
+				Name:        "watch",
+				Aliases:     []string{"w"},
+				Usage:       "Watches the provided command, by running it continuously with the given time interval",
+				Description: "Runs the provided command on a loop with the provided interval between each run. Terminating this command (with ctrl+c) will stop the loop, another termination signal will terminate the running command.",
+
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "quiet",
+						Aliases: []string{"q", "silent", "s"},
+
+						Usage: "if provided, will not show output in terminal.",
+
+						Value:    false,
+						Required: false,
+					},
+
+					&cli.StringFlag{
+						Name:    "timeout",
+						Aliases: []string{"t"},
+
+						Usage: "if provided, will set timeout for the running command (on each run), acceptable suffixes are (ns, ms, s, m, h) e.g. 2s, 100ms, ...",
+
+						Value:    "",
+						Required: false,
+					},
+
+					&cli.StringFlag{
+						Name:    "interval",
+						Aliases: []string{"n"},
+
+						Usage: "the frequency of running the command; when the command fully executes, we will wait for the provided interval, then run the command again. If set to lower than 4 seconds, updates will be sent to telegram every 4 seconds to not hit telegram rate limit. Accepts same suffixes as timeout.",
+
+						Value:    "5s",
+						Required: false,
+					},
+				},
+
+				Action: commands.WatchCommand,
 			},
 		},
 	}

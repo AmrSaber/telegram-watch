@@ -21,12 +21,12 @@ type CommandRunner struct {
 	doneFailMessage    string
 }
 
-var messageBaseTemplate string
+var runnerMessageBaseTemplate string
 
 func NewRunner(config Config, command string) (*CommandRunner, error) {
 	cmd := exec.Command("bash", "-c", command)
 
-	messageBaseTemplate = fmt.Sprintf(
+	runnerMessageBaseTemplate = fmt.Sprintf(
 		"%%s Hello %s\n"+
 			"This message traces %%s from command %q\n"+
 			"From your device %q\n\n"+
@@ -36,8 +36,8 @@ func NewRunner(config Config, command string) (*CommandRunner, error) {
 		config.User.Hostname,
 	)
 
-	stdoutTemplate := fmt.Sprintf(messageBaseTemplate, utils.GREEN_CIRCLE, "STDOUT")
-	stderrTemplate := fmt.Sprintf(messageBaseTemplate, utils.RED_CIRCLE, "STDERR")
+	stdoutTemplate := fmt.Sprintf(runnerMessageBaseTemplate, utils.GREEN_CIRCLE, "STDOUT")
+	stderrTemplate := fmt.Sprintf(runnerMessageBaseTemplate, utils.RED_CIRCLE, "STDERR")
 
 	telegramId, _ := config.User.DecryptTelegramId()
 
@@ -99,16 +99,16 @@ func (r *CommandRunner) RunCommand(ctx context.Context) error {
 
 	err = r.command.Wait()
 
+	// Set templates to completed templates
+	stdoutTemplate := fmt.Sprintf(runnerMessageBaseTemplate, utils.WHITE_CIRCLE, "STDOUT")
+	r.stdoutWriter.SetContentMapper(func(input []byte) []byte { return fmt.Appendf([]byte{}, stdoutTemplate, input) })
+
+	stderrTemplate := fmt.Sprintf(runnerMessageBaseTemplate, utils.WHITE_CIRCLE, "STDERR")
+	r.stderrWriter.SetContentMapper(func(input []byte) []byte { return fmt.Appendf([]byte{}, stderrTemplate, input) })
+
 	// Wait for writers to finish any pending writing
 	r.stdoutWriter.Wait()
 	r.stderrWriter.Wait()
-
-	// Set templates to completed templates
-	stdoutTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDOUT")
-	r.stdoutWriter.SetContentMapper(func(input []byte) []byte { return fmt.Appendf([]byte{}, stdoutTemplate, input) })
-
-	stderrTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDERR")
-	r.stderrWriter.SetContentMapper(func(input []byte) []byte { return fmt.Appendf([]byte{}, stderrTemplate, input) })
 
 	doneMessage := r.doneSuccessMessage
 	if err != nil {

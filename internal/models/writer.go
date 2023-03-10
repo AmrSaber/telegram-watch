@@ -82,7 +82,10 @@ func (w *TelegramWriter) SetContent(content []byte) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	w.fullContent = content
+	clone := make([]byte, len(content))
+	copy(clone, content)
+	w.fullContent = clone
+
 	w.flush()
 }
 
