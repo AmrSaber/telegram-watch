@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"unsafe"
 
 	"github.com/AmrSaber/tw/internal/env"
 	"github.com/AmrSaber/tw/internal/utils"
@@ -48,6 +47,10 @@ func NewTelegramWriter(chatId string) *TelegramWriter {
 	}
 }
 
+func (m *TelegramWriter) GetChatId() int64 {
+	return m.chatId
+}
+
 func (m *TelegramWriter) SetAutoFlush(autoFlush bool) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -85,6 +88,7 @@ func (m *TelegramWriter) SetContent(content []byte) error {
 	return nil
 }
 
+// FIXME: too many calls trigger rate limit (try with "ping google.com")
 func (m *TelegramWriter) flush() error {
 	if len(m.fullContent) == 0 {
 		return nil
@@ -95,6 +99,7 @@ func (m *TelegramWriter) flush() error {
 
 	// Update existing messages or send new ones as needed
 	for index, part := range splitContent {
+
 		// If the message consists of more than 1 part, append part counter to the end of each part
 		if len(splitContent) > 1 {
 			// This part is necessary so that the original string is not modified
@@ -108,7 +113,7 @@ func (m *TelegramWriter) flush() error {
 		}
 
 		// Convert the byte array into string without allocation
-		strPart := unsafe.String(unsafe.SliceData(part), len(part))
+		strPart := utils.ToString(part)
 
 		if index >= len(m.messages) {
 			// If message at current index does not exist, send it
@@ -125,8 +130,14 @@ func (m *TelegramWriter) flush() error {
 
 			m.messages = append(m.messages, &msg)
 		} else {
+			message := m.messages[index]
+
+			if strPart == message.Text {
+				continue
+			}
+
 			// If message already exists, update it
-			updateMsgConfig := tgbotapi.NewEditMessageText(m.chatId, m.messages[index].MessageID, strPart)
+			updateMsgConfig := tgbotapi.NewEditMessageText(m.chatId, message.MessageID, strPart)
 
 			msg, err := m.bot.Send(updateMsgConfig)
 			if err != nil && !strings.Contains(err.Error(), "message is not modified") {

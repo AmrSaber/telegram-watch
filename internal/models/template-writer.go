@@ -2,62 +2,40 @@ package models
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 	"sync"
-
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type TelegramTemplateWriter struct {
 	lock sync.Mutex
 
-	chatId int64
+	writer *TelegramWriter
 
-	bot *tgbotapi.BotAPI
-	msg *tgbotapi.Message
+	started bool
 
-	content  string
+	content  []byte
 	template string // Must contain exactly one "%s" to be replaces with the content
 }
 
-func NewTelegramTemplateWriter(userId string, bot *tgbotapi.BotAPI, template string) *TelegramTemplateWriter {
-	chatId, err := strconv.ParseInt(userId, 0, 0)
-	if err != nil {
-		panic(err)
-	}
+func NewTelegramTemplateWriter(userId string, template string) *TelegramTemplateWriter {
+	writer := NewTelegramWriter(userId)
 
 	return &TelegramTemplateWriter{
-		chatId: chatId,
-		bot:    bot,
+		writer: writer,
 
+		content:  make([]byte, 0),
 		template: template,
 	}
 }
 
-// Sends first message to user
-func (w *TelegramTemplateWriter) start() error {
-	msgContent := fmt.Sprintf(w.template, w.content)
-	msgConfig := tgbotapi.NewMessage(w.chatId, msgContent)
-
-	msg, err := w.bot.Send(msgConfig)
-	if err != nil {
-		return err
-	}
-
-	w.msg = &msg
-	return nil
+func (w *TelegramTemplateWriter) GetChatId() int64 {
+	return w.writer.GetChatId()
 }
 
 func (w *TelegramTemplateWriter) Write(bytes []byte) (int, error) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	if w.msg == nil {
-		w.start()
-	}
-
-	w.content += string(bytes)
+	w.content = append(w.content, bytes...)
 
 	if err := w.flush(); err != nil {
 		return 0, err
@@ -71,25 +49,20 @@ func (w *TelegramTemplateWriter) SetTemplate(template string) {
 	defer w.lock.Unlock()
 
 	w.template = template
-	if w.msg != nil {
+	if w.started {
 		w.flush()
 	}
 }
 
-func (w *TelegramTemplateWriter) GetChatId() int64 {
-	return w.chatId
-}
-
 // Write latest content to message
 func (w *TelegramTemplateWriter) flush() error {
-	msgContent := fmt.Sprintf(w.template, w.content)
-	updateMsgConfig := tgbotapi.NewEditMessageText(w.chatId, w.msg.MessageID, msgContent)
+	msgContent := fmt.Appendf([]byte{}, w.template, w.content)
 
-	msg, err := w.bot.Send(updateMsgConfig)
-	if err != nil && !strings.Contains(err.Error(), "message is not modified") {
+	if err := w.writer.SetContent(msgContent); err != nil {
+		// FIXME: this error is lost, the command at runner.go sends "signal: broken pipe" error
 		return err
 	}
 
-	w.msg = &msg
+	w.started = true
 	return nil
 }

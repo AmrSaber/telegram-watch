@@ -48,8 +48,8 @@ func NewRunner(config Config, command string) (*CommandRunner, error) {
 	stderrTemplate := fmt.Sprintf(messageBaseTemplate, utils.RED_CIRCLE, "STDERR")
 
 	telegramId, _ := config.User.DecryptTelegramId()
-	stdoutMsgWriter := NewTelegramTemplateWriter(telegramId, bot, stdoutTemplate)
-	stderrMsgWriter := NewTelegramTemplateWriter(telegramId, bot, stderrTemplate)
+	stdoutMsgWriter := NewTelegramTemplateWriter(telegramId, stdoutTemplate)
+	stderrMsgWriter := NewTelegramTemplateWriter(telegramId, stderrTemplate)
 
 	var stdoutWriter, stderrWriter io.Writer
 	stdoutWriter = stdoutMsgWriter
@@ -110,10 +110,10 @@ func (w *CommandRunner) RunCommand(ctx context.Context) error {
 	w.stdoutWriter.SetTemplate(stdoutTemplate)
 	w.stderrWriter.SetTemplate(stderrTemplate)
 
-	doneMsgConfig := tgbotapi.NewMessage(w.stdoutWriter.chatId, w.doneSuccessMessage)
+	doneMsgConfig := tgbotapi.NewMessage(w.stdoutWriter.GetChatId(), w.doneSuccessMessage)
 	if err != nil {
 		failMessage := fmt.Sprintf(w.doneFailMessage, err)
-		doneMsgConfig = tgbotapi.NewMessage(w.stderrWriter.chatId, failMessage)
+		doneMsgConfig = tgbotapi.NewMessage(w.stderrWriter.GetChatId(), failMessage)
 	}
 
 	if _, err := w.bot.Send(doneMsgConfig); err != nil {

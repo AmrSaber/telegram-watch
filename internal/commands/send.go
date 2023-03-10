@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"unsafe"
 
 	"github.com/AmrSaber/tw/internal/models"
 	"github.com/AmrSaber/tw/internal/utils"
@@ -50,8 +49,8 @@ func SendCommand(ctx *cli.Context) error {
 	// Send message
 	content = fmt.Sprintf("%s:\n%s", config.User.Hostname, content)
 
-	message := models.NewTelegramWriter(telegramId)
-	_, err = message.Write(unsafe.Slice(unsafe.StringData(content), len(content)))
+	writer := models.NewTelegramWriter(telegramId)
+	_, err = writer.Write(utils.ToBytes(content))
 
 	return err
 }

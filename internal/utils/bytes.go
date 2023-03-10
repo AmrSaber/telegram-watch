@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"unsafe"
 )
 
 func MeaningfullySplit(input []byte, size int) [][]byte {
@@ -58,4 +59,12 @@ func MeaningfullySplit(input []byte, size int) [][]byte {
 	}
 
 	return chunks
+}
+
+func ToString(bytes []byte) string {
+	return unsafe.String(unsafe.SliceData(bytes), len(bytes))
+}
+
+func ToBytes(str string) []byte {
+	return unsafe.Slice(unsafe.StringData(str), len(str))
 }
