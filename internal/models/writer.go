@@ -1,6 +1,7 @@
 package models
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strconv"
@@ -56,7 +57,9 @@ func (w *TelegramWriter) GetChatId() int64 {
 
 // Waits for pending message writes
 func (w *TelegramWriter) Wait() {
-	w.wg.Wait()
+	for w.shouldFlush {
+		w.wg.Wait()
+	}
 }
 
 func (w *TelegramWriter) SetContentMapper(mapper func([]byte) []byte) {
@@ -124,13 +127,13 @@ func (w *TelegramWriter) flush() {
 }
 
 func (w *TelegramWriter) handleMessages() error {
-	content := w.fullContent
+	content := bytes.TrimSpace(w.fullContent)
 	if w.contentMapper != nil {
-		content = w.contentMapper(w.fullContent)
+		content = bytes.TrimSpace(w.contentMapper(w.fullContent))
 	}
 
 	splitContent := utils.MeaningfullySplit(content, utils.TELEGRAM_MESSAGE_LIMIT)
-	countTemplate := fmt.Sprintf("\n\n---------------\n(%%0%dd/%d)", utils.CountDigits(len(splitContent)), len(splitContent))
+	countTemplate := fmt.Sprintf("\n--------------\n(%%0%dd/%d)\n", utils.CountDigits(len(splitContent)), len(splitContent))
 
 	// Update existing messages or send new ones as needed
 	for index, part := range splitContent {
@@ -185,7 +188,7 @@ func (w *TelegramWriter) handleMessages() error {
 
 	// Delete any extra messages after the update
 	if len(w.messages) > len(splitContent) {
-		extra := w.messages[len(splitContent)-1:]
+		extra := w.messages[len(splitContent):]
 		w.messages = w.messages[:len(splitContent)]
 
 		for _, message := range extra {

@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -25,11 +24,6 @@ func WatchCommand(c *cli.Context) error {
 	interval, err := time.ParseDuration(intervalStr)
 	if err != nil {
 		return fmt.Errorf("invalid interval: %w", err)
-	}
-
-	if interval < 4*time.Second {
-		fmt.Fprintln(os.Stderr, "too low interval, setting it to 4 seconds!")
-		interval = 4 * time.Second
 	}
 
 	timeoutStr := c.String("timeout")
@@ -58,8 +52,6 @@ func WatchCommand(c *cli.Context) error {
 	if err := watcher.WatchCommand(); err != nil {
 		return err
 	}
-
-	fmt.Println("\nDone watching", command)
 
 	return nil
 }

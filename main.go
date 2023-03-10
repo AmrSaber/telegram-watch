@@ -107,7 +107,7 @@ func main() {
 				Name:        "watch",
 				Aliases:     []string{"w"},
 				Usage:       "Watches the provided command, by running it continuously with the given time interval",
-				Description: "Runs the provided command on a loop with the provided interval between each run. Terminating this command (with ctrl+c) will stop the loop, another termination signal will terminate the running command.",
+				Description: "Runs the provided command on a loop with the provided interval between each run.",
 
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
@@ -134,7 +134,7 @@ func main() {
 						Name:    "interval",
 						Aliases: []string{"n"},
 
-						Usage: "the frequency of running the command; when the command fully executes, we will wait for the provided interval, then run the command again. If set to lower than 4 seconds, updates will be sent to telegram every 4 seconds to not hit telegram rate limit. Accepts same suffixes as timeout.",
+						Usage: "the frequency of running the command; when the command fully executes, we will wait for the provided interval, then run the command again. Note: updates will be sent to telegram every 4 seconds to not hit telegram rate limit, so if the command exits quickly with small interval some data may be not sent to telegram. Accepts same suffixes as timeout.",
 
 						Value:    "5s",
 						Required: false,

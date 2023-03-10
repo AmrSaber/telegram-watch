@@ -116,7 +116,9 @@ func (r *CommandRunner) RunCommand(ctx context.Context) error {
 	}
 
 	chatId := fmt.Sprint(r.stdoutWriter.GetChatId())
-	NewTelegramWriter(chatId).Write(utils.ToBytes(doneMessage))
+	doneWriter := NewTelegramWriter(chatId)
+	doneWriter.Write(utils.ToBytes(doneMessage))
+	doneWriter.Wait()
 
 	return err
 }

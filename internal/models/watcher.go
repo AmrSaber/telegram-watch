@@ -70,9 +70,12 @@ func (r *CommandWatcher) WatchCommand() error {
 	utils.HandleInterrupt(func() {
 		if looping {
 			looping = false
-		} else if runningProcess != nil {
-			runningProcess.Signal(syscall.SIGINT)
-			runningProcess = nil
+
+			// stop the running process
+			if runningProcess != nil {
+				runningProcess.Signal(syscall.SIGINT)
+				runningProcess = nil
+			}
 		} else {
 			os.Exit(1)
 		}
@@ -86,39 +89,39 @@ func (r *CommandWatcher) WatchCommand() error {
 
 	var outputBuffer bytes.Buffer
 
-	timer := time.NewTimer(r.runtimeConfig.Timeout)
-	defer timer.Stop()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go func() {
-		for {
-			select {
-			case <-timer.C:
-				fmt.Println("timer timed out")
-				fmt.Println("running process:", runningProcess)
-				// FIXME runningProcess is always nil
-				if runningProcess != nil {
-					fmt.Println("signaled")
-					runningProcess.Signal(syscall.SIGINT)
-					runningProcess = nil
+	var timer *time.Timer
+	if r.runtimeConfig.Timeout != 0 {
+		timer = time.NewTimer(r.runtimeConfig.Timeout)
+		defer timer.Stop()
+
+		go func() {
+			for {
+				select {
+				case <-timer.C:
+					if runningProcess != nil {
+						runningProcess.Signal(syscall.SIGINT)
+						runningProcess = nil
+					}
+					timer.Stop()
+					timer.Reset(r.runtimeConfig.Timeout)
+
+				case <-ctx.Done():
+					return
 				}
-				timer.Stop()
-				timer.Reset(r.runtimeConfig.Timeout)
-
-			case <-ctx.Done():
-				return
 			}
-		}
-	}()
+		}()
+	}
 
-	fmt.Printf("Watching command %s\n\n", r.command)
-	uiWriter.Start()
+	fmt.Printf("Watching command %q\n\n", r.command)
+	if !r.runtimeConfig.Quiet {
+		uiWriter.Start()
+	}
 
 	for looping {
 		cmd := exec.Command("bash", "-c", r.command)
-		runningProcess = cmd.Process
 
 		cmd.Stdout = &outputBuffer
 		cmd.Stderr = &outputBuffer
@@ -129,30 +132,40 @@ func (r *CommandWatcher) WatchCommand() error {
 			return fmt.Errorf("could not run command: %w", err)
 		}
 
+		runningProcess = cmd.Process
+
 		err = cmd.Wait()
 		if err != nil {
 			return fmt.Errorf("error waiting for command: %w", err)
 		}
 
+		if !looping {
+			break
+		}
+
 		// Append run time to the output
 		commandRunTime := time.Since(startTime)
-		fmt.Fprintf(&outputBuffer, "\n\n--------------\nRun time: %.3fms", float64(commandRunTime.Microseconds())/1000)
+		outputBytes := bytes.Clone(bytes.TrimSpace(outputBuffer.Bytes()))
+		outputBytes = fmt.Appendf(outputBytes, "\n\n--------------\nRun time: %.3fms\n", float64(commandRunTime.Microseconds())/1000)
 
 		if !r.runtimeConfig.Quiet {
-			uiWriter.Write(outputBuffer.Bytes())
+			uiWriter.Write(outputBytes)
 			uiWriter.Flush()
 		}
 
-		r.messageWriter.SetContent(outputBuffer.Bytes())
+		r.messageWriter.SetContent(outputBytes)
 		outputBuffer.Reset()
 
 		time.Sleep(r.runtimeConfig.Interval)
 
 		// Reset timer
-		if !timer.Stop() {
-			<-timer.C
+		if timer != nil {
+			if !timer.Stop() {
+				<-timer.C
+			}
+
+			timer.Reset(r.runtimeConfig.Timeout)
 		}
-		timer.Reset(r.runtimeConfig.Timeout)
 	}
 
 	// Set templates to completed templates
@@ -166,7 +179,11 @@ func (r *CommandWatcher) WatchCommand() error {
 	r.messageWriter.Wait()
 
 	doneMessage, chatId := r.doneMessage, fmt.Sprint(r.messageWriter.GetChatId())
-	NewTelegramWriter(chatId).Write(utils.ToBytes(doneMessage))
+	doneWriter := NewTelegramWriter(chatId)
+	doneWriter.Write(utils.ToBytes(doneMessage))
+	doneWriter.Wait()
+
+	fmt.Printf("\nDone watching %q\n", r.command)
 
 	return nil
 }
