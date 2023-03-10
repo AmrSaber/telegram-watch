@@ -8,13 +8,10 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/AmrSaber/tw/internal/env"
 	"github.com/AmrSaber/tw/internal/utils"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type CommandRunner struct {
-	bot          *tgbotapi.BotAPI
 	stdoutWriter *TelegramWriter
 	stderrWriter *TelegramWriter
 
@@ -28,11 +25,6 @@ var messageBaseTemplate string
 
 func NewRunner(config Config, command string) (*CommandRunner, error) {
 	cmd := exec.Command("bash", "-c", command)
-
-	bot, err := tgbotapi.NewBotAPI(env.GetBotTokenKey())
-	if err != nil {
-		return nil, err
-	}
 
 	messageBaseTemplate = fmt.Sprintf(
 		"%%s Hello %s\n"+
@@ -82,7 +74,6 @@ func NewRunner(config Config, command string) (*CommandRunner, error) {
 	)
 
 	runner := CommandRunner{
-		bot:          bot,
 		stdoutWriter: stdoutMsgWriter,
 		stderrWriter: stderrMsgWriter,
 
@@ -119,15 +110,13 @@ func (r *CommandRunner) RunCommand(ctx context.Context) error {
 	stderrTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDERR")
 	r.stderrWriter.SetContentMapper(func(input []byte) []byte { return fmt.Appendf([]byte{}, stderrTemplate, input) })
 
-	doneMsgConfig := tgbotapi.NewMessage(r.stdoutWriter.GetChatId(), r.doneSuccessMessage)
+	doneMessage := r.doneSuccessMessage
 	if err != nil {
-		failMessage := fmt.Sprintf(r.doneFailMessage, err)
-		doneMsgConfig = tgbotapi.NewMessage(r.stderrWriter.GetChatId(), failMessage)
+		doneMessage = fmt.Sprintf(r.doneFailMessage, err)
 	}
 
-	if _, err := r.bot.Send(doneMsgConfig); err != nil {
-		return err
-	}
+	chatId := fmt.Sprint(r.stdoutWriter.GetChatId())
+	NewTelegramWriter(chatId).Write(utils.ToBytes(doneMessage))
 
 	return err
 }
