@@ -25,7 +25,8 @@ type TelegramWriter struct {
 	bot      *tgbotapi.BotAPI
 	messages []*tgbotapi.Message
 
-	fullContent []byte
+	fullContent   []byte
+	contentMapper func([]byte) []byte
 }
 
 func NewTelegramWriter(chatId string) *TelegramWriter {
@@ -56,6 +57,14 @@ func (w *TelegramWriter) GetChatId() int64 {
 // Waits for pending message writes
 func (w *TelegramWriter) Wait() {
 	w.wg.Wait()
+}
+
+func (w *TelegramWriter) SetContentMapper(mapper func([]byte) []byte) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	w.contentMapper = mapper
+	w.flush()
 }
 
 // Never returns an error
@@ -112,7 +121,12 @@ func (w *TelegramWriter) flush() {
 }
 
 func (w *TelegramWriter) handleMessages() error {
-	splitContent := utils.MeaningfullySplit(w.fullContent, utils.TELEGRAM_MESSAGE_LIMIT)
+	content := w.fullContent
+	if w.contentMapper != nil {
+		content = w.contentMapper(w.fullContent)
+	}
+
+	splitContent := utils.MeaningfullySplit(content, utils.TELEGRAM_MESSAGE_LIMIT)
 	countTemplate := fmt.Sprintf("\n\n---------------\n(%%0%dd/%d)", utils.CountDigits(len(splitContent)), len(splitContent))
 
 	// Update existing messages or send new ones as needed
@@ -120,14 +134,14 @@ func (w *TelegramWriter) handleMessages() error {
 
 		// If the message consists of more than 1 part, append part counter to the end of each part
 		if len(splitContent) > 1 {
-			// This part is necessary so that the original string is not modified
+			// This is necessary so that the original string is not modified
 			{
-				partClone := make([]byte, len(part))
-				copy(partClone, part)
-				part = partClone
+				clone := make([]byte, len(part))
+				copy(clone, part)
+				part = clone
 			}
 
-			part = fmt.Appendf(part[:], countTemplate, index+1)
+			part = fmt.Appendf(part, countTemplate, index+1)
 		}
 
 		// Convert the byte array into string without allocation

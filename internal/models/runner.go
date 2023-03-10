@@ -15,8 +15,8 @@ import (
 
 type CommandRunner struct {
 	bot          *tgbotapi.BotAPI
-	stdoutWriter *TelegramTemplateWriter
-	stderrWriter *TelegramTemplateWriter
+	stdoutWriter *TelegramWriter
+	stderrWriter *TelegramWriter
 
 	command *exec.Cmd
 
@@ -48,8 +48,12 @@ func NewRunner(config Config, command string) (*CommandRunner, error) {
 	stderrTemplate := fmt.Sprintf(messageBaseTemplate, utils.RED_CIRCLE, "STDERR")
 
 	telegramId, _ := config.User.DecryptTelegramId()
-	stdoutMsgWriter := NewTelegramTemplateWriter(telegramId, stdoutTemplate)
-	stderrMsgWriter := NewTelegramTemplateWriter(telegramId, stderrTemplate)
+
+	stdoutMsgWriter := NewTelegramWriter(telegramId)
+	stdoutMsgWriter.SetContentMapper(func(input []byte) []byte { return fmt.Appendf([]byte{}, stdoutTemplate, input) })
+
+	stderrMsgWriter := NewTelegramWriter(telegramId)
+	stderrMsgWriter.SetContentMapper(func(input []byte) []byte { return fmt.Appendf([]byte{}, stderrTemplate, input) })
 
 	var stdoutWriter, stderrWriter io.Writer
 	stdoutWriter = stdoutMsgWriter
@@ -91,36 +95,37 @@ func NewRunner(config Config, command string) (*CommandRunner, error) {
 	return &runner, nil
 }
 
-func (w *CommandRunner) RunCommand(ctx context.Context) error {
-	err := w.command.Start()
+func (r *CommandRunner) RunCommand(ctx context.Context) error {
+	err := r.command.Start()
 	if err != nil {
 		return err
 	}
 
 	go func() {
 		<-ctx.Done()
-		w.command.Process.Signal(syscall.SIGINT)
+		r.command.Process.Signal(syscall.SIGINT)
 	}()
 
-	err = w.command.Wait()
+	err = r.command.Wait()
 
 	// Wait for writers to finish any pending writing
-	w.stdoutWriter.Wait()
-	w.stderrWriter.Wait()
+	r.stdoutWriter.Wait()
+	r.stderrWriter.Wait()
 
 	// Set templates to completed templates
 	stdoutTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDOUT")
-	stderrTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDERR")
-	w.stdoutWriter.SetTemplate(stdoutTemplate)
-	w.stderrWriter.SetTemplate(stderrTemplate)
+	r.stdoutWriter.SetContentMapper(func(input []byte) []byte { return fmt.Appendf([]byte{}, stdoutTemplate, input) })
 
-	doneMsgConfig := tgbotapi.NewMessage(w.stdoutWriter.GetChatId(), w.doneSuccessMessage)
+	stderrTemplate := fmt.Sprintf(messageBaseTemplate, utils.WHITE_CIRCLE, "STDERR")
+	r.stderrWriter.SetContentMapper(func(input []byte) []byte { return fmt.Appendf([]byte{}, stderrTemplate, input) })
+
+	doneMsgConfig := tgbotapi.NewMessage(r.stdoutWriter.GetChatId(), r.doneSuccessMessage)
 	if err != nil {
-		failMessage := fmt.Sprintf(w.doneFailMessage, err)
-		doneMsgConfig = tgbotapi.NewMessage(w.stderrWriter.GetChatId(), failMessage)
+		failMessage := fmt.Sprintf(r.doneFailMessage, err)
+		doneMsgConfig = tgbotapi.NewMessage(r.stderrWriter.GetChatId(), failMessage)
 	}
 
-	if _, err := w.bot.Send(doneMsgConfig); err != nil {
+	if _, err := r.bot.Send(doneMsgConfig); err != nil {
 		return err
 	}
 
