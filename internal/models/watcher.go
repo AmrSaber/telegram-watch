@@ -64,6 +64,9 @@ func NewWatcher(config Config, command string) *CommandWatcher {
 }
 
 func (r *CommandWatcher) WatchCommand() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	var runningProcess *os.Process
 	looping := true
 
@@ -76,6 +79,8 @@ func (r *CommandWatcher) WatchCommand() error {
 				runningProcess.Signal(syscall.SIGINT)
 				runningProcess = nil
 			}
+
+			cancel()
 		} else {
 			os.Exit(1)
 		}
@@ -89,24 +94,21 @@ func (r *CommandWatcher) WatchCommand() error {
 
 	var outputBuffer bytes.Buffer
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	var timer *time.Timer
+	var timeoutTimer *time.Timer
 	if r.runtimeConfig.Timeout != 0 {
-		timer = time.NewTimer(r.runtimeConfig.Timeout)
-		defer timer.Stop()
+		timeoutTimer = time.NewTimer(r.runtimeConfig.Timeout)
+		defer timeoutTimer.Stop()
 
 		go func() {
 			for {
 				select {
-				case <-timer.C:
+				case <-timeoutTimer.C:
 					if runningProcess != nil {
 						runningProcess.Signal(syscall.SIGINT)
 						runningProcess = nil
 					}
-					timer.Stop()
-					timer.Reset(r.runtimeConfig.Timeout)
+					timeoutTimer.Stop()
+					timeoutTimer.Reset(r.runtimeConfig.Timeout)
 
 				case <-ctx.Done():
 					return
@@ -156,15 +158,24 @@ func (r *CommandWatcher) WatchCommand() error {
 		r.messageWriter.SetContent(outputBytes)
 		outputBuffer.Reset()
 
-		time.Sleep(r.runtimeConfig.Interval)
-
-		// Reset timer
-		if timer != nil {
-			if !timer.Stop() {
-				<-timer.C
+		// Stop timeout timer
+		if timeoutTimer != nil {
+			if !timeoutTimer.Stop() {
+				<-timeoutTimer.C
 			}
+		}
 
-			timer.Reset(r.runtimeConfig.Timeout)
+		intervalTimer := time.NewTimer(r.runtimeConfig.Interval)
+
+		select {
+		// End waiting for whichever comes first
+		case <-intervalTimer.C:
+		case <-ctx.Done():
+		}
+
+		// Reset timeout timer
+		if timeoutTimer != nil && looping {
+			timeoutTimer.Reset(r.runtimeConfig.Timeout)
 		}
 	}
 
@@ -175,12 +186,12 @@ func (r *CommandWatcher) WatchCommand() error {
 		return fmt.Appendf([]byte{}, stdoutTemplate, now.Format(time.RFC3339), input)
 	})
 
-	// Wait for writers to finish any pending writing
-	r.messageWriter.Wait()
-
 	doneMessage, chatId := r.doneMessage, fmt.Sprint(r.messageWriter.GetChatId())
 	doneWriter := NewTelegramWriter(chatId)
 	doneWriter.Write(utils.ToBytes(doneMessage))
+
+	// Wait for writers to finish any pending writing
+	r.messageWriter.Wait()
 	doneWriter.Wait()
 
 	fmt.Printf("\nDone watching %q\n", r.command)
