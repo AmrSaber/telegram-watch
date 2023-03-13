@@ -111,10 +111,6 @@ func (r *CommandRunner) RunCommand(ctx context.Context) error {
 	stderrTemplate := fmt.Sprintf(runnerMessageBaseTemplate, utils.WHITE_CIRCLE, "STDERR")
 	r.stderrWriter.SetContentMapper(func(input []byte) []byte { return fmt.Appendf([]byte{}, stderrTemplate, input) })
 
-	// Wait for writers to finish any pending writing
-	r.stdoutWriter.Wait()
-	r.stderrWriter.Wait()
-
 	doneMessage := fmt.Sprintf(r.doneSuccessMessage, utils.FormatTime(commandRunTime.Nanoseconds()))
 	if err != nil {
 		doneMessage = fmt.Sprintf(r.doneFailMessage, err, utils.FormatTime(commandRunTime.Nanoseconds()))
@@ -123,6 +119,10 @@ func (r *CommandRunner) RunCommand(ctx context.Context) error {
 	chatId := fmt.Sprint(r.stdoutWriter.GetChatId())
 	doneWriter := NewTelegramWriter(chatId)
 	doneWriter.Write(utils.ToBytes(doneMessage))
+
+	// Wait for writers to finish any pending writing
+	r.stdoutWriter.Wait()
+	r.stderrWriter.Wait()
 	doneWriter.Wait()
 
 	return err

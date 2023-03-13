@@ -15,13 +15,13 @@ import (
 )
 
 type TelegramWriter struct {
-	lock sync.Mutex
+	lock *sync.Mutex
 	once sync.Once
-	wg   sync.WaitGroup
 
 	chatId int64
 
 	shouldFlush bool
+	flushed     sync.Cond
 
 	bot      *tgbotapi.BotAPI
 	messages []*tgbotapi.Message
@@ -41,13 +41,19 @@ func NewTelegramWriter(chatId string) *TelegramWriter {
 		panic(err)
 	}
 
+	lock := sync.Mutex{}
+
 	return &TelegramWriter{
+		lock: &lock,
+
 		chatId: numChatId,
 
 		bot:      bot,
 		messages: make([]*tgbotapi.Message, 0),
 
 		fullContent: make([]byte, 0),
+
+		flushed: *sync.NewCond(&lock),
 	}
 }
 
@@ -57,8 +63,11 @@ func (w *TelegramWriter) GetChatId() int64 {
 
 // Waits for pending message writes
 func (w *TelegramWriter) Wait() {
+	w.flushed.L.Lock()
+	defer w.flushed.L.Unlock()
+
 	for w.shouldFlush {
-		w.wg.Wait()
+		w.flushed.Wait()
 	}
 }
 
@@ -101,10 +110,7 @@ func (w *TelegramWriter) flush() {
 
 	// Throttle calling telegram API
 	w.once.Do(func() {
-		w.wg.Add(1)
 		go func() {
-			defer w.wg.Done()
-
 			time.Sleep(4 * time.Second)
 			w.lock.Lock()
 			defer w.lock.Unlock()
@@ -120,8 +126,10 @@ func (w *TelegramWriter) flush() {
 			fmt.Fprintln(os.Stderr, "error sending/updating telegram messages:", err)
 		}
 
+		// Ignore all errors except API throttle (to retry later)
 		if err == nil || !strings.Contains(strings.ToLower(err.Error()), "retry after") {
 			w.shouldFlush = false
+			w.flushed.Broadcast()
 		}
 	})
 }
