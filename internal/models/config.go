@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/AmrSaber/tw/internal/utils"
+	"github.com/AmrSaber/tw/internal/env"
 	"gopkg.in/yaml.v2"
 )
 
@@ -23,7 +23,7 @@ type RuntimeConfig struct {
 }
 
 func LoadConfig() Config {
-	configPath, err := utils.GetConfigFilePath()
+	configPath, err := env.GetConfigFilePath()
 	if err != nil {
 		return Config{}
 	}
@@ -47,7 +47,7 @@ func LoadConfig() Config {
 }
 
 func (c Config) Save() error {
-	configPath, err := utils.GetConfigFilePath()
+	configPath, err := env.GetConfigFilePath()
 	if err != nil {
 		return err
 	}

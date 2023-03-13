@@ -126,7 +126,7 @@ func (r *CommandWatcher) WatchCommand() error {
 		cmd.Stdout = &outputBuffer
 		cmd.Stderr = &outputBuffer
 
-		startTime := time.Now()
+		commandStartTime := time.Now()
 		err := cmd.Start()
 		if err != nil {
 			return fmt.Errorf("could not run command: %w", err)
@@ -144,9 +144,9 @@ func (r *CommandWatcher) WatchCommand() error {
 		}
 
 		// Append run time to the output
-		commandRunTime := time.Since(startTime)
+		commandRunTime := time.Since(commandStartTime)
 		outputBytes := bytes.Clone(bytes.TrimSpace(outputBuffer.Bytes()))
-		outputBytes = fmt.Appendf(outputBytes, "\n\n--------------\nRun time: %.3fms\n", float64(commandRunTime.Microseconds())/1000)
+		outputBytes = fmt.Appendf(outputBytes, "\n\n--------------\nRun time: %s\n", utils.FormatTime(commandRunTime.Nanoseconds()))
 
 		if !r.runtimeConfig.Quiet {
 			uiWriter.Write(outputBytes)

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 
 	"github.com/AmrSaber/tw/internal/utils"
 )
@@ -60,14 +61,14 @@ func NewRunner(config Config, command string) (*CommandRunner, error) {
 	cmd.Stderr = stderrWriter
 
 	doneSuccessMessage := fmt.Sprintf(
-		"Command %q\non device %q\nis now done successfully %s",
+		"Command %q\non device %q\nis now done successfully %s\nTotal run time %%s",
 		command,
 		config.User.Hostname,
 		utils.GREEN_CHECK,
 	)
 
 	doneFailMessage := fmt.Sprintf(
-		"Command %q\non device %q\nexited with %%q %s",
+		"Command %q\non device %q\nexited with %%q %s\nTotal run time %%s",
 		command,
 		config.User.Hostname,
 		utils.RED_X,
@@ -87,6 +88,8 @@ func NewRunner(config Config, command string) (*CommandRunner, error) {
 }
 
 func (r *CommandRunner) RunCommand(ctx context.Context) error {
+	commandStartTime := time.Now()
+
 	err := r.command.Start()
 	if err != nil {
 		return err
@@ -99,6 +102,8 @@ func (r *CommandRunner) RunCommand(ctx context.Context) error {
 
 	err = r.command.Wait()
 
+	commandRunTime := time.Since(commandStartTime)
+
 	// Set templates to completed templates
 	stdoutTemplate := fmt.Sprintf(runnerMessageBaseTemplate, utils.WHITE_CIRCLE, "STDOUT")
 	r.stdoutWriter.SetContentMapper(func(input []byte) []byte { return fmt.Appendf([]byte{}, stdoutTemplate, input) })
@@ -110,9 +115,9 @@ func (r *CommandRunner) RunCommand(ctx context.Context) error {
 	r.stdoutWriter.Wait()
 	r.stderrWriter.Wait()
 
-	doneMessage := r.doneSuccessMessage
+	doneMessage := fmt.Sprintf(r.doneSuccessMessage, utils.FormatTime(commandRunTime.Nanoseconds()))
 	if err != nil {
-		doneMessage = fmt.Sprintf(r.doneFailMessage, err)
+		doneMessage = fmt.Sprintf(r.doneFailMessage, err, utils.FormatTime(commandRunTime.Nanoseconds()))
 	}
 
 	chatId := fmt.Sprint(r.stdoutWriter.GetChatId())
