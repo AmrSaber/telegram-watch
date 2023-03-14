@@ -181,9 +181,9 @@ func (r *CommandWatcher) WatchCommand() error {
 		if timeoutTimer != nil && looping {
 			timeoutTimer.Reset(r.runtimeConfig.Timeout)
 		}
-	}
+	} // End command watching loop
 
-	// Set templates to completed templates
+	// Set template to completed template
 	stdoutTemplate := fmt.Sprintf(watcherMessageBaseTemplate, utils.WHITE_CIRCLE)
 	r.messageWriter.SetContentMapper(func(input []byte) []byte {
 		return fmt.Appendf([]byte{}, stdoutTemplate, time.Now().Format(time.RFC3339), input)

@@ -122,7 +122,6 @@ func (r *CommandRunner) RunCommand(ctx context.Context) error {
 
 	doneWriter := NewTelegramWriter(r.stdoutWriter.GetChatId())
 	doneWriter.Write(utils.StringToBytes(doneMessage))
-
 	doneWriter.Wait()
 
 	return err
