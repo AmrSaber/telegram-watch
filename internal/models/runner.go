@@ -120,9 +120,8 @@ func (r *CommandRunner) RunCommand(ctx context.Context) error {
 	r.stdoutWriter.Wait()
 	r.stderrWriter.Wait()
 
-	chatId := fmt.Sprint(r.stdoutWriter.GetChatId())
-	doneWriter := NewTelegramWriter(chatId)
-	doneWriter.Write(utils.ToBytes(doneMessage))
+	doneWriter := NewTelegramWriter(r.stdoutWriter.GetChatId())
+	doneWriter.Write(utils.StringToBytes(doneMessage))
 
 	doneWriter.Wait()
 

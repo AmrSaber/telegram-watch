@@ -21,7 +21,7 @@ type TelegramWriter struct {
 
 	cooldown    bool
 	shouldFlush bool
-	flushed     sync.Cond
+	flushed     *sync.Cond
 
 	bot      *tgbotapi.BotAPI
 	messages []*tgbotapi.Message
@@ -53,12 +53,12 @@ func NewTelegramWriter(chatId string) *TelegramWriter {
 
 		fullContent: make([]byte, 0),
 
-		flushed: *sync.NewCond(&lock),
+		flushed: sync.NewCond(&lock),
 	}
 }
 
-func (w *TelegramWriter) GetChatId() int64 {
-	return w.chatId
+func (w *TelegramWriter) GetChatId() string {
+	return fmt.Sprint(w.chatId)
 }
 
 // Waits for pending message writes
@@ -113,10 +113,11 @@ func (w *TelegramWriter) SetContent(content []byte) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	clone := make([]byte, len(content))
-	copy(clone, content)
-	w.fullContent = clone
+	if bytes.Equal(w.fullContent, content) {
+		return
+	}
 
+	w.fullContent = bytes.Clone(content)
 	w.flush()
 }
 
@@ -156,7 +157,7 @@ func (w *TelegramWriter) handleMessages() error {
 		content = bytes.TrimSpace(w.contentMapper(w.fullContent))
 	}
 
-	splitContent := utils.MeaningfullySplit(content, utils.TELEGRAM_MESSAGE_LIMIT)
+	splitContent := utils.SplitMeaningfully(content, utils.TELEGRAM_MESSAGE_LIMIT)
 	countTemplate := fmt.Sprintf("\n--------------\n(%%0%dd/%d)\n", utils.CountDigits(len(splitContent)), len(splitContent))
 
 	// Update existing messages or send new ones as needed
@@ -164,18 +165,12 @@ func (w *TelegramWriter) handleMessages() error {
 
 		// If the message consists of more than 1 part, append part counter to the end of each part
 		if len(splitContent) > 1 {
-			// This is necessary so that the original string is not modified
-			{
-				clone := make([]byte, len(part))
-				copy(clone, part)
-				part = clone
-			}
-
+			part = bytes.Clone(part)
 			part = fmt.Appendf(part, countTemplate, index+1)
 		}
 
 		// Convert the byte array into string without allocation
-		strPart := utils.ToString(part)
+		strPart := utils.BytesToString(part)
 
 		if index >= len(w.messages) {
 			// If message at current index does not exist, send it

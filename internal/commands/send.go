@@ -50,7 +50,7 @@ func SendCommand(ctx *cli.Context) error {
 	content = fmt.Sprintf("%s:\n%s", config.User.Hostname, content)
 
 	writer := models.NewTelegramWriter(telegramId)
-	_, err = writer.Write(utils.ToBytes(content))
+	_, err = writer.Write(utils.StringToBytes(content))
 
 	return err
 }

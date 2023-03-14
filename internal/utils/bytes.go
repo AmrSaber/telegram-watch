@@ -5,7 +5,7 @@ import (
 	"unsafe"
 )
 
-func MeaningfullySplit(input []byte, size int) [][]byte {
+func SplitMeaningfully(input []byte, size int) [][]byte {
 	if size < 1 {
 		return nil
 	}
@@ -61,10 +61,10 @@ func MeaningfullySplit(input []byte, size int) [][]byte {
 	return chunks
 }
 
-func ToString(bytes []byte) string {
+func BytesToString(bytes []byte) string {
 	return unsafe.String(unsafe.SliceData(bytes), len(bytes))
 }
 
-func ToBytes(str string) []byte {
+func StringToBytes(str string) []byte {
 	return unsafe.Slice(unsafe.StringData(str), len(str))
 }

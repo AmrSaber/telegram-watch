@@ -42,8 +42,7 @@ func NewWatcher(config Config, command string) *CommandWatcher {
 
 	messageWriter := NewTelegramWriter(telegramId)
 	messageWriter.SetContentMapper(func(input []byte) []byte {
-		now := time.Now()
-		return fmt.Appendf([]byte{}, outputTemplate, now.Format(time.RFC3339), input)
+		return fmt.Appendf([]byte{}, outputTemplate, time.Now().Format(time.RFC3339), input)
 	})
 
 	doneMessage := fmt.Sprintf(
@@ -173,7 +172,12 @@ func (r *CommandWatcher) WatchCommand() error {
 		case <-ctx.Done():
 		}
 
-		// Reset timeout timer
+		// Release interval timer resources
+		if !intervalTimer.Stop() {
+			<-intervalTimer.C
+		}
+
+		// Reset timeout timer, if exists
 		if timeoutTimer != nil && looping {
 			timeoutTimer.Reset(r.runtimeConfig.Timeout)
 		}
@@ -182,16 +186,14 @@ func (r *CommandWatcher) WatchCommand() error {
 	// Set templates to completed templates
 	stdoutTemplate := fmt.Sprintf(watcherMessageBaseTemplate, utils.WHITE_CIRCLE)
 	r.messageWriter.SetContentMapper(func(input []byte) []byte {
-		now := time.Now()
-		return fmt.Appendf([]byte{}, stdoutTemplate, now.Format(time.RFC3339), input)
+		return fmt.Appendf([]byte{}, stdoutTemplate, time.Now().Format(time.RFC3339), input)
 	})
 
 	// Wait for writer to finish any pending writing
 	r.messageWriter.Wait()
 
-	doneMessage, chatId := r.doneMessage, fmt.Sprint(r.messageWriter.GetChatId())
-	doneWriter := NewTelegramWriter(chatId)
-	doneWriter.Write(utils.ToBytes(doneMessage))
+	doneWriter := NewTelegramWriter(r.messageWriter.GetChatId())
+	doneWriter.Write(utils.StringToBytes(r.doneMessage))
 	doneWriter.Wait()
 
 	fmt.Printf("\nDone watching %q\n", r.command)
