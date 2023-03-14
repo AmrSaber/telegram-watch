@@ -49,9 +49,5 @@ func WatchCommand(c *cli.Context) error {
 
 	command := strings.Join(args, " ")
 	watcher := models.NewWatcher(config, command)
-	if err := watcher.WatchCommand(); err != nil {
-		return err
-	}
-
-	return nil
+	return watcher.WatchCommand()
 }

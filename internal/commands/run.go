@@ -56,9 +56,5 @@ func RunCommand(c *cli.Context) error {
 		return err
 	}
 
-	if err := runner.RunCommand(ctx); err != nil {
-		return err
-	}
-
-	return nil
+	return runner.RunCommand(ctx)
 }

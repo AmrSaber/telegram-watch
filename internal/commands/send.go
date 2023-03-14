@@ -25,7 +25,7 @@ func SendCommand(ctx *cli.Context) error {
 			return err
 		}
 
-		content = string(bytes)
+		content = utils.BytesToString(bytes)
 	}
 
 	// Add any required prefixes
