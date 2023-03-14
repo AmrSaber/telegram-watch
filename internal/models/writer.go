@@ -16,10 +16,10 @@ import (
 
 type TelegramWriter struct {
 	lock *sync.Mutex
-	once sync.Once
 
 	chatId int64
 
+	cooldown    bool
 	shouldFlush bool
 	flushed     sync.Cond
 
@@ -71,6 +71,25 @@ func (w *TelegramWriter) Wait() {
 	}
 }
 
+func (w *TelegramWriter) SetCooldown(duration time.Duration) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	w.cooldown = true
+
+	go func() {
+		time.Sleep(duration)
+
+		w.lock.Lock()
+		defer w.lock.Unlock()
+
+		w.cooldown = false
+		if w.shouldFlush {
+			w.flush()
+		}
+	}()
+}
+
 func (w *TelegramWriter) SetContentMapper(mapper func([]byte) []byte) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
@@ -101,6 +120,7 @@ func (w *TelegramWriter) SetContent(content []byte) {
 	w.flush()
 }
 
+// Flush should always be called with lock
 func (w *TelegramWriter) flush() {
 	if len(w.fullContent) == 0 {
 		return
@@ -108,30 +128,26 @@ func (w *TelegramWriter) flush() {
 
 	w.shouldFlush = true
 
-	// Throttle calling telegram API
-	w.once.Do(func() {
-		go func() {
-			time.Sleep(4 * time.Second)
-			w.lock.Lock()
-			defer w.lock.Unlock()
+	if w.cooldown {
+		return
+	}
 
-			w.once = sync.Once{}
-			if w.shouldFlush {
-				w.flush()
-			}
-		}()
+	// Throttle calling telegram API, in a go-routine for locks
+	go func() { w.SetCooldown(4 * time.Second) }()
+	w.cooldown = true
 
-		err := w.handleMessages()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "error sending/updating telegram messages:", err)
+	err := w.handleMessages()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error sending/updating telegram messages:", err)
+
+		// If the error is API throttle, leave `shouldFlush` as it is, to retry again later
+		if strings.Contains(strings.ToLower(err.Error()), "retry after") {
+			return
 		}
+	}
 
-		// Ignore all errors except API throttle (to retry later)
-		if err == nil || !strings.Contains(strings.ToLower(err.Error()), "retry after") {
-			w.shouldFlush = false
-			w.flushed.Broadcast()
-		}
-	})
+	w.shouldFlush = false
+	w.flushed.Broadcast()
 }
 
 func (w *TelegramWriter) handleMessages() error {

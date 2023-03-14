@@ -186,12 +186,12 @@ func (r *CommandWatcher) WatchCommand() error {
 		return fmt.Appendf([]byte{}, stdoutTemplate, now.Format(time.RFC3339), input)
 	})
 
+	// Wait for writer to finish any pending writing
+	r.messageWriter.Wait()
+
 	doneMessage, chatId := r.doneMessage, fmt.Sprint(r.messageWriter.GetChatId())
 	doneWriter := NewTelegramWriter(chatId)
 	doneWriter.Write(utils.ToBytes(doneMessage))
-
-	// Wait for writers to finish any pending writing
-	r.messageWriter.Wait()
 	doneWriter.Wait()
 
 	fmt.Printf("\nDone watching %q\n", r.command)

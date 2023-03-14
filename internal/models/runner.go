@@ -116,13 +116,14 @@ func (r *CommandRunner) RunCommand(ctx context.Context) error {
 		doneMessage = fmt.Sprintf(r.doneFailMessage, err, utils.FormatTime(commandRunTime.Nanoseconds()))
 	}
 
+	// Wait for writers to finish any pending writing
+	r.stdoutWriter.Wait()
+	r.stderrWriter.Wait()
+
 	chatId := fmt.Sprint(r.stdoutWriter.GetChatId())
 	doneWriter := NewTelegramWriter(chatId)
 	doneWriter.Write(utils.ToBytes(doneMessage))
 
-	// Wait for writers to finish any pending writing
-	r.stdoutWriter.Wait()
-	r.stderrWriter.Wait()
 	doneWriter.Wait()
 
 	return err
